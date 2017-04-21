@@ -1,0 +1,138 @@
+{
+	
+    "parameters": {
+        "hostingEnvironment": {
+            "defaultValue": "",
+			"type": "string"
+        },
+        "location": {
+            "defaultValue": "Southeast Asia",
+			"type": "string"
+        },
+        "sku": {
+            "defaultValue": "Free",
+			"type": "string"
+        },
+        "workerSize": {
+            "defaultValue": "0",
+			"type": "string"
+        },
+        "skuCode": {
+            "defaultValue": "F1",
+			"type": "string"
+        }
+    },
+	"variables" :{
+		"serverFarmResourceGroup":"[resourceGroup().name]",
+		"dbResourceGroup":"[resourceGroup().name]",
+		"dbSubscriptionId":"[subscription().subscriptionId]",
+		"subscriptionId":"[subscription().subscriptionId]",
+		"databaseName":"[resourceGroup().name]",
+		"name":"[resourceGroup().name]",
+		"hostingPlanName":"[resourceGroup().name]",
+		"location":"[resourceGroup().location]"
+	
+	},
+    "resources": [
+		{
+            "apiVersion": "2016-09-01",
+            "name": "[variables('hostingPlanName')]",
+            "type": "Microsoft.Web/serverfarms",
+            "location": "[variables('location')]",
+            "properties": {
+                "name": "[variables('hostingPlanName')]",
+                "workerSizeId": "[parameters('workerSize')]",
+                "reserved": false,
+                "numberOfWorkers": "1",
+                "hostingEnvironment": "[parameters('hostingEnvironment')]"
+            },
+            "sku": {
+                "Tier": "[parameters('sku')]",
+                "Name": "[parameters('skuCode')]"
+            }
+        },
+	
+        {
+            "name": "[variables('name')]",
+            "type": "Microsoft.Web/sites",
+            "properties": {
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "PHPMYADMIN_EXTENSION_VERSION",
+                            "value": "latest"
+                        }
+                    ],
+                    "phpVersion": "5.6",
+                    "connectionStrings": [
+                        {
+                            "name": "defaultConnection",
+                            "ConnectionString": "[reference(concat('SuccessBricks.ClearDB/databases/', variables('databaseName'))).connectionString]",
+                            "type": "MySQL"
+                        }
+                    ]
+                },
+                "name": "[variables('name')]",
+                "serverFarmId": "[concat('/subscriptions/', variables('subscriptionId'),'/resourcegroups/', variables('serverFarmResourceGroup'), '/providers/Microsoft.Web/serverfarms/', variables('hostingPlanName'))]",
+                "hostingEnvironment": "[parameters('hostingEnvironment')]"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2016-03-01",
+                    "name": "web",
+                    "type": "sourcecontrols",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/Sites', variables('name'))]"
+                    ],
+                    "properties": {
+                        "RepoUrl": "https://github.com/azureappserviceoss/wordpress-azure",
+                        "branch": "master",
+                        "IsManualIntegration": true
+                    }
+                }
+            ],
+            "tags": {
+                "[concat('hidden-link:/subscriptions/', variables('dbSubscriptionId'), '/resourcegroups/', variables('dbResourceGroup'), '/providers/SuccessBricks.ClearDB/databases/', variables('databaseName'))]": "empty",
+                "[concat('hidden-related:', '/subscriptions/', variables('subscriptionId'),'/resourcegroups/', variables('serverFarmResourceGroup'), '/providers/Microsoft.Web/serverfarms/', variables('hostingPlanName'))]": "empty"
+            },
+            "apiVersion": "2016-03-01",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Web/serverfarms/', variables('hostingPlanName'))]"
+            ]
+        },
+        
+        {
+            "apiVersion": "2014-04-01",
+            "name": "[variables('name')]",
+            "type": "microsoft.insights/components",
+            "location": "East US",
+            "dependsOn": [
+                "[concat('Microsoft.Web/sites/', variables('name'))]"
+            ],
+            "tags": {
+                "[concat('hidden-link:', resourceGroup().id, '/providers/Microsoft.Web/sites/', variables('name'))]": "Resource"
+            },
+            "properties": {
+                "ApplicationId": "[variables('name')]",
+                "Request_Source": "IbizaWebAppExtensionCreate"
+            }
+        },
+        {
+            "apiVersion": "2014-01-01",
+            "name": "[variables('databaseName')]",
+            "type": "SuccessBricks.ClearDB/databases",
+            "plan": {
+                "name": "Free",
+                "product": "databases",
+                "publisher": "cleardb"
+            },
+            "location": "Southeast Asia",
+            "tags": {
+                "provision_source": "RMS"
+            }
+        }
+    ],
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0"
+}
